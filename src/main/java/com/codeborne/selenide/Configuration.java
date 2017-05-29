@@ -10,6 +10,8 @@ import static com.codeborne.selenide.WebDriverRunner.FIREFOX;
 public class Configuration {
   private static final Logger LOG = Logger.getLogger(Configuration.class.getName());
 
+  public static String browserMode = "";
+
   /**
    * Base url for open() function calls
    * Can be configured either programmatically or by system property "-Dselenide.baseUrl=http://myhost".

@@ -56,6 +56,10 @@ public class Selenide {
     open(relativeOrAbsoluteUrl, "", "", "");
   }
 
+  public static void open(String relativeOrAbsoluteUrl, String mode) {
+    open(relativeOrAbsoluteUrl, "", "", "", mode);
+  }
+
   /**
    * @see Selenide#open(String)
    */
@@ -80,6 +84,11 @@ public class Selenide {
    */
   public static void open(String relativeOrAbsoluteUrl, String domain, String login, String password) {
     navigator.open(relativeOrAbsoluteUrl, domain, login, password);
+    mockModalDialogs();
+  }
+
+  public static void open(String relativeOrAbsoluteUrl, String domain, String login, String password, String mode) {
+    navigator.open(relativeOrAbsoluteUrl, domain, login, password, mode);
     mockModalDialogs();
   }
 

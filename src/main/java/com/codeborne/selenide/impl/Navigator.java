@@ -1,6 +1,9 @@
 package com.codeborne.selenide.impl;
 
+import com.codeborne.selenide.Configuration;
 import com.codeborne.selenide.Selenide;
+import com.codeborne.selenide.WebDriverRunner;
+import com.codeborne.selenide.logevents.LogEvent;
 import com.codeborne.selenide.logevents.SelenideLog;
 import com.codeborne.selenide.logevents.SelenideLogger;
 import org.openqa.selenium.JavascriptExecutor;
@@ -33,6 +36,15 @@ public class Navigator {
     } else {
       navigateToAbsoluteUrl(absoluteUrl(relativeOrAbsoluteUrl), domain, login, password);
     }
+  }
+
+  public void open(String relativeOrAbsoluteUrl, String domain, String login, String password, String mode) {
+    if(this.isAbsoluteUrl(relativeOrAbsoluteUrl)) {
+      this.navigateToAbsoluteUrl(relativeOrAbsoluteUrl, domain, login, password, mode);
+    } else {
+      this.navigateToAbsoluteUrl(this.absoluteUrl(relativeOrAbsoluteUrl), domain, login, password, mode);
+    }
+
   }
 
   public void open(URL url, String domain, String login, String password) {
@@ -86,6 +98,59 @@ public class Navigator {
     catch (Error e) {
       SelenideLogger.commitStep(log, e);
       throw e;
+    }
+  }
+
+  protected void navigateToAbsoluteUrl(String url, String domain, String login, String password, String mode) {
+    if(WebDriverRunner.isIE() && !this.isLocalFile(url)) {
+      url = this.makeUniqueUrlToAvoidIECaching(url, System.nanoTime());
+      if(!domain.isEmpty()) {
+        domain = domain + "\\";
+      }
+    } else {
+      if(!domain.isEmpty()) {
+        domain = domain + "%5C";
+      }
+
+      if(!login.isEmpty()) {
+        login = login + ":";
+      }
+
+      if(!password.isEmpty()) {
+        password = password + "@";
+      }
+
+      int log = url.indexOf("://") + 3;
+      url = (log < 3?"":url.substring(0, log - 3) + "://") + domain + login + password + (log < 3?url:url.substring(log));
+    }
+
+    SelenideLog log1 = SelenideLogger.beginStep("open", url);
+
+    try {
+      if(!Configuration.browserMode.equals(mode)) {
+        WebDriverRunner.closeWebDriver();
+        Configuration.browserMode = mode;
+      }
+
+      WebDriver e = WebDriverRunner.getAndCheckWebDriver();
+      e.navigate().to(url);
+      if(WebDriverRunner.isIE() && !"".equals(login)) {
+        Selenide.switchTo().alert().authenticateUsing(new UserAndPassword(domain + login, password));
+      }
+
+      this.collectJavascriptErrors((JavascriptExecutor)e);
+      SelenideLogger.commitStep(log1, LogEvent.EventStatus.PASS);
+    } catch (WebDriverException var8) {
+      SelenideLogger.commitStep(log1, var8);
+      var8.addInfo("selenide.url", url);
+      var8.addInfo("selenide.baseUrl", Configuration.baseUrl);
+      throw var8;
+    } catch (RuntimeException var9) {
+      SelenideLogger.commitStep(log1, var9);
+      throw var9;
+    } catch (Error var10) {
+      SelenideLogger.commitStep(log1, var10);
+      throw var10;
     }
   }
 

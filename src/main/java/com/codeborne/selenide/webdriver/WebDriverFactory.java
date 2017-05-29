@@ -1,5 +1,7 @@
 package com.codeborne.selenide.webdriver;
 
+import com.codeborne.selenide.Configuration;
+import com.codeborne.selenide.ModeConstant;
 import com.codeborne.selenide.Selenide;
 import com.codeborne.selenide.WebDriverProvider;
 import org.openqa.selenium.Capabilities;
@@ -170,6 +172,9 @@ public class WebDriverFactory {
 
   protected ChromeOptions createChromeOptions() {
     ChromeOptions options = new ChromeOptions();
+    if(Configuration.browserMode == ModeConstant.type.mobile) {
+      options.addArguments(new String[]{"--user-agent=iphone"}); //把Chrome伪装模拟成iPhone的User Agent字符串
+    }
     options.addArguments("--no-sandbox");  // This make Chromium reachable (?)
     if (chromeSwitches != null) {
       options.addArguments(chromeSwitches);
