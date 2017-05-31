@@ -278,6 +278,13 @@ public class WebDriverFactory {
     return driver;
   }
 
+  public void adjustBrowserSize(WebDriver driver, String size) {
+      String[] dimension = size.split("x");
+      int width = Integer.parseInt(dimension[0]);
+      int height = Integer.parseInt(dimension[1]);
+      driver.manage().window().setSize(new org.openqa.selenium.Dimension(width, height));
+  }
+
   protected void maximizeChromeBrowser(WebDriver.Window window) {
     // Chrome driver does not yet support maximizing. Let' apply black magic!
     org.openqa.selenium.Dimension screenResolution = getScreenSize();

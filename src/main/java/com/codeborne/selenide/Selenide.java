@@ -3,6 +3,7 @@ package com.codeborne.selenide;
 import com.codeborne.selenide.ex.DialogTextMismatch;
 import com.codeborne.selenide.ex.JavaScriptErrorsFound;
 import com.codeborne.selenide.impl.*;
+import com.codeborne.selenide.webdriver.WebDriverFactory;
 import org.openqa.selenium.*;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.logging.LogEntry;
@@ -38,6 +39,10 @@ public class Selenide {
   private static final Logger log = Logger.getLogger(Selenide.class.getName());
 
   public static Navigator navigator = new Navigator();
+
+  public static void setBrowserSize(String size) {
+    new WebDriverFactory().adjustBrowserSize(webdriverContainer.getWebDriver(), size);
+  }
 
 
   /**

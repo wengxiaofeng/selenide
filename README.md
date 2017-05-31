@@ -77,3 +77,5 @@ Many thanks to these incredible tools that help us creating open-source software
 
 ## License
 Selenide is open-source project, and distributed under the [MIT](http://choosealicense.com/licenses/mit/) license
+
+
