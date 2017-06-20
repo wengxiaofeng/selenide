@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 
+import static com.codeborne.selenide.Configuration.remote;
 import static com.codeborne.selenide.Configuration.reportsFolder;
 import static com.codeborne.selenide.WebDriverRunner.getWebDriver;
 import static java.io.File.separatorChar;
@@ -75,8 +76,15 @@ public class ScreenShotLaboratory {
    * @return the name of last saved screenshot or null if failed to create screenshot
    */
   public String takeScreenShot(String fileName) {
+    log.info("takeScreenShot  开始");
+
     if (!WebDriverRunner.hasWebDriverStarted()) {
       log.warning("Cannot take screenshot because browser is not started");
+      return null;
+    }
+
+    if (true) {
+      log.info("jenkins运行的时候,slave机子没有登录,selenium截图会挂住,先不让截图");
       return null;
     }
 
@@ -90,15 +98,18 @@ public class ScreenShotLaboratory {
     if (imageFile == null) {
       return null;
     }
+    log.info("takeScreenShot  结束");
     return addToHistory(imageFile).getAbsolutePath();
   }
 
   public File takeScreenshot(WebElement element) {
     try {
+      log.info("开始截图");
       BufferedImage dest = takeScreenshotAsImage(element);
       File screenshotOfElement = new File(reportsFolder, generateScreenshotFileName() + ".png");
       ensureFolderExists(screenshotOfElement);
       ImageIO.write(dest, "png", screenshotOfElement);
+      log.info("图片创建成功");
       return screenshotOfElement;
     }
     catch (IOException e) {
@@ -158,15 +169,19 @@ public class ScreenShotLaboratory {
   }
 
   protected File savePageImageToFile(String fileName, WebDriver webdriver) {
+    log.info("savePageImageToFile  开始");
     File imageFile = null;
     if (webdriver instanceof TakesScreenshot) {
+      log.info("webdriver instanceof TakesScreenshot");
       imageFile = takeScreenshotImage((TakesScreenshot) webdriver, fileName);
     } else if (webdriver instanceof RemoteWebDriver) { // TODO Remove this obsolete branch
+      log.info("webdriver instanceof RemoteWebDriver");
       WebDriver remoteDriver = new Augmenter().augment(webdriver);
       if (remoteDriver instanceof TakesScreenshot) {
         imageFile = takeScreenshotImage((TakesScreenshot) remoteDriver, fileName);
       }
     }
+    log.info("savePageImageToFile  结束");
     return imageFile;
   }
 
@@ -230,8 +245,11 @@ public class ScreenShotLaboratory {
   protected File takeScreenshotImage(TakesScreenshot driver, String fileName) {
     try {
       File scrFile = driver.getScreenshotAs(FILE);
+      log.info("scrFile");
       File imageFile = new File(reportsFolder, fileName + ".png");
+      log.info("imageFile");
       copyFile(scrFile, imageFile);
+      log.info("takeScreenshotImage + copyFile");
       return imageFile;
     } catch (Exception e) {
       printOnce("takeScreenshotImage", e);
@@ -264,6 +282,8 @@ public class ScreenShotLaboratory {
         out.write(buffer, 0, len);
       }
     }
+
+    log.info("copyFile 结束");
   }
 
   protected void writeToFile(String content, File targetFile) {
@@ -282,6 +302,7 @@ public class ScreenShotLaboratory {
       if (!folder.mkdirs()) {
         log.severe("Failed to create " + folder);
       }
+      log.info("Create folder success");
     }
     return targetFile;
   }
