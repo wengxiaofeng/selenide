@@ -12,10 +12,7 @@ import org.openqa.selenium.support.ui.FluentWait;
 
 import java.lang.reflect.Constructor;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -792,6 +789,14 @@ public class Selenide {
    */
   public static void clearBrowserCookies() {
     getWebDriver().manage().deleteAllCookies();
+  }
+
+  public static void addCookie(Cookie cookie) {
+    getWebDriver().manage().addCookie(cookie);
+  }
+
+  public static Set<Cookie> getCookies() {
+    return getWebDriver().manage().getCookies();
   }
 
   /**
