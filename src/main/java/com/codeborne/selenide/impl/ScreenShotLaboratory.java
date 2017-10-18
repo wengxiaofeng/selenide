@@ -76,17 +76,17 @@ public class ScreenShotLaboratory {
    * @return the name of last saved screenshot or null if failed to create screenshot
    */
   public String takeScreenShot(String fileName) {
-    log.info("takeScreenShot  开始");
+//    log.info("takeScreenShot  开始");
 
     if (!WebDriverRunner.hasWebDriverStarted()) {
       log.warning("Cannot take screenshot because browser is not started");
       return null;
     }
 
-    if (true) {
-      log.info("jenkins运行的时候,slave机子没有登录,selenium截图会挂住,先不让截图");
-      return null;
-    }
+//    if (true) {
+//      log.info("jenkins运行的时候,slave机子没有登录,selenium截图会挂住,先不让截图");
+//      return null;
+//    }
 
     WebDriver webdriver = getWebDriver();
 
@@ -98,7 +98,7 @@ public class ScreenShotLaboratory {
     if (imageFile == null) {
       return null;
     }
-    log.info("takeScreenShot  结束");
+//    log.info("takeScreenShot  结束");
     return addToHistory(imageFile).getAbsolutePath();
   }
 
