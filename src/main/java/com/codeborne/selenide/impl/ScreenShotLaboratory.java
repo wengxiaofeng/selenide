@@ -345,14 +345,14 @@ public class ScreenShotLaboratory {
 
     if (Configuration.reportsUrl != null) {
       String screenshotRelativePath = screenshot.substring(System.getProperty("user.dir").length() + System.getProperty("reportsFolder").length()+ 1);
-      return screenshotRelativePath.replace('\\', '/');
-//      String screenshotUrl = Configuration.reportsUrl + screenshotRelativePath.replace('\\', '/');
-//      try {
-//        screenshotUrl = new URL(screenshotUrl).toExternalForm();
-//      }
-//      catch (MalformedURLException ignore) { }
-//      log.config("Replaced screenshot file path '" + screenshot + "' by public CI URL '" + screenshotUrl + "'");
-//      return screenshotUrl;
+//      return screenshotRelativePath.replace('\\', '/');
+      String screenshotUrl = Configuration.reportsUrl + screenshotRelativePath.replace('\\', '/');
+      try {
+        screenshotUrl = new URL(screenshotUrl).toExternalForm();
+      }
+      catch (MalformedURLException ignore) { }
+      log.config("Replaced screenshot file path '" + screenshot + "' by public CI URL '" + screenshotUrl + "'");
+      return screenshotUrl;
     }
 
     log.config("reportsUrl is not configured. Returning screenshot file name '" + screenshot + "'");
