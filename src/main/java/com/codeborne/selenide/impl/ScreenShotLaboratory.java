@@ -344,7 +344,7 @@ public class ScreenShotLaboratory {
     }
 
     if (Configuration.reportsUrl != null) {
-      String screenshotRelativePath = screenshot.substring(System.getProperty("user.dir").length() + reportsFolder.length()+ 1);
+      String screenshotRelativePath = screenshot.substring(System.getProperty("user.dir").length() + reportsFolder.length()+ 2);
 //      return screenshotRelativePath.replace('\\', '/');
       String screenshotUrl = Configuration.reportsUrl + screenshotRelativePath.replace('\\', '/');
       try {
