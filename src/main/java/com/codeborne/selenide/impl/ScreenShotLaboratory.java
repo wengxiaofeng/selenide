@@ -104,12 +104,12 @@ public class ScreenShotLaboratory {
 
   public File takeScreenshot(WebElement element) {
     try {
-      log.info("开始截图");
+//      log.info("开始截图");
       BufferedImage dest = takeScreenshotAsImage(element);
       File screenshotOfElement = new File(reportsFolder, generateScreenshotFileName() + ".png");
       ensureFolderExists(screenshotOfElement);
       ImageIO.write(dest, "png", screenshotOfElement);
-      log.info("图片创建成功");
+//      log.info("图片创建成功");
       return screenshotOfElement;
     }
     catch (IOException e) {
@@ -169,19 +169,19 @@ public class ScreenShotLaboratory {
   }
 
   protected File savePageImageToFile(String fileName, WebDriver webdriver) {
-    log.info("savePageImageToFile  开始");
+//    log.info("savePageImageToFile  开始");
     File imageFile = null;
     if (webdriver instanceof TakesScreenshot) {
-      log.info("webdriver instanceof TakesScreenshot");
+//      log.info("webdriver instanceof TakesScreenshot");
       imageFile = takeScreenshotImage((TakesScreenshot) webdriver, fileName);
     } else if (webdriver instanceof RemoteWebDriver) { // TODO Remove this obsolete branch
-      log.info("webdriver instanceof RemoteWebDriver");
+//      log.info("webdriver instanceof RemoteWebDriver");
       WebDriver remoteDriver = new Augmenter().augment(webdriver);
       if (remoteDriver instanceof TakesScreenshot) {
         imageFile = takeScreenshotImage((TakesScreenshot) remoteDriver, fileName);
       }
     }
-    log.info("savePageImageToFile  结束");
+//    log.info("savePageImageToFile  结束");
     return imageFile;
   }
 
@@ -245,11 +245,11 @@ public class ScreenShotLaboratory {
   protected File takeScreenshotImage(TakesScreenshot driver, String fileName) {
     try {
       File scrFile = driver.getScreenshotAs(FILE);
-      log.info("scrFile");
+//      log.info("scrFile");
       File imageFile = new File(reportsFolder, fileName + ".png");
-      log.info("imageFile");
+//      log.info("imageFile");
       copyFile(scrFile, imageFile);
-      log.info("takeScreenshotImage + copyFile");
+//      log.info("takeScreenshotImage + copyFile");
       return imageFile;
     } catch (Exception e) {
       printOnce("takeScreenshotImage", e);
@@ -283,7 +283,7 @@ public class ScreenShotLaboratory {
       }
     }
 
-    log.info("copyFile 结束");
+//    log.info("copyFile 结束");
   }
 
   protected void writeToFile(String content, File targetFile) {
@@ -344,14 +344,15 @@ public class ScreenShotLaboratory {
     }
 
     if (Configuration.reportsUrl != null) {
-      String screenshotRelativePath = screenshot.substring(System.getProperty("user.dir").length() + 1);
-      String screenshotUrl = Configuration.reportsUrl + screenshotRelativePath.replace('\\', '/');
-      try {
-        screenshotUrl = new URL(screenshotUrl).toExternalForm();
-      }
-      catch (MalformedURLException ignore) { }
-      log.config("Replaced screenshot file path '" + screenshot + "' by public CI URL '" + screenshotUrl + "'");
-      return screenshotUrl;
+      String screenshotRelativePath = screenshot.substring(System.getProperty("user.dir").length() + System.getProperty("reportsFolder").length()+ 1);
+      return screenshotRelativePath.replace('\\', '/');
+//      String screenshotUrl = Configuration.reportsUrl + screenshotRelativePath.replace('\\', '/');
+//      try {
+//        screenshotUrl = new URL(screenshotUrl).toExternalForm();
+//      }
+//      catch (MalformedURLException ignore) { }
+//      log.config("Replaced screenshot file path '" + screenshot + "' by public CI URL '" + screenshotUrl + "'");
+//      return screenshotUrl;
     }
 
     log.config("reportsUrl is not configured. Returning screenshot file name '" + screenshot + "'");
