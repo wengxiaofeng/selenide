@@ -41,6 +41,10 @@ public class Selenide {
     new WebDriverFactory().adjustBrowserSize(webdriverContainer.getWebDriver(), size);
   }
 
+  public static String getCurrentUrl() {
+    return webdriverContainer.getWebDriver().getCurrentUrl();
+  }
+
 
   /**
    * The main starting point in your tests.
