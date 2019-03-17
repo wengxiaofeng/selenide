@@ -1,37 +1,45 @@
 package com.codeborne.selenide.impl;
 
+import com.codeborne.selenide.Driver;
+import com.codeborne.selenide.SelenideElement;
 import org.openqa.selenium.By;
 import org.openqa.selenium.SearchContext;
 import org.openqa.selenium.WebElement;
 
 import java.util.List;
 
-import static com.codeborne.selenide.WebDriverRunner.getWebDriver;
-
 public class BySelectorCollection implements WebElementsCollection {
 
+  private final Driver driver;
   private final SearchContext parent;
   private final By selector;
 
-  public BySelectorCollection(By selector) {
-    this(null, selector);
+  public BySelectorCollection(Driver driver, By selector) {
+    this(driver, null, selector);
   }
 
-  public BySelectorCollection(SearchContext parent, By selector) {
+  public BySelectorCollection(Driver driver, SearchContext parent, By selector) {
+    this.driver = driver;
     this.parent = parent;
     this.selector = selector;
   }
 
   @Override
-  public List<WebElement> getActualElements() {
-    SearchContext searchContext = parent == null ? getWebDriver() : parent;
-    return WebElementSelector.instance.findElements(searchContext, selector);
+  public List<WebElement> getElements() {
+    SearchContext searchContext = parent == null ? driver.getWebDriver() : parent;
+    return WebElementSelector.instance.findElements(driver, searchContext, selector);
   }
 
   @Override
   public String description() {
     return parent == null ? Describe.selector(selector) :
-        (parent instanceof WebElement) ? Describe.shortly((WebElement) parent) + "/" + Describe.shortly(selector) :
+        (parent instanceof SelenideElement) ?
+            ((SelenideElement) parent).getSearchCriteria() + "/" + Describe.shortly(selector) :
             Describe.shortly(selector);
+  }
+
+  @Override
+  public Driver driver() {
+    return driver;
   }
 }

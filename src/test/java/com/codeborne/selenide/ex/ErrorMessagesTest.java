@@ -1,84 +1,119 @@
 package com.codeborne.selenide.ex;
 
-import com.codeborne.selenide.Configuration;
-import com.codeborne.selenide.impl.ScreenShotLaboratory;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import com.codeborne.selenide.Browser;
+import com.codeborne.selenide.Driver;
+import com.codeborne.selenide.DriverStub;
+import com.codeborne.selenide.SelenideConfig;
+import org.assertj.core.api.WithAssertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.openqa.selenium.chrome.ChromeDriver;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Locale;
 
-import static com.codeborne.selenide.Screenshots.screenshots;
 import static java.io.File.separatorChar;
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.openqa.selenium.OutputType.FILE;
 
-public class ErrorMessagesTest {
+class ErrorMessagesTest implements WithAssertions {
+  private final ChromeDriver webDriver = mock(ChromeDriver.class);
+  private final SelenideConfig config = new SelenideConfig().reportsFolder("build/reports/tests");
+  private final Driver driver = new DriverStub(config, new Browser("chrome", false), webDriver, null);
 
-  private static String reportsUrl;
-
-  @BeforeClass
-  public static void rememberOldValues() {
-    reportsUrl = Configuration.reportsUrl;
-  }
-
-  @AfterClass
-  public static void restoreOldValues() {
-    Configuration.screenshots = true;
-    Configuration.reportsUrl = reportsUrl;
-    screenshots = new ScreenShotLaboratory();
-  }
-
-  @Before
-  public void setUp() {
-    Configuration.screenshots = true;
-    screenshots = mock(ScreenShotLaboratory.class);
-    doCallRealMethod().when(screenshots).formatScreenShotPath();
+  @BeforeEach
+  void setUp() {
+    config.screenshots(true);
+    config.savePageSource(false);
+    when(webDriver.getPageSource()).thenReturn("<html></html>");
   }
 
   @Test
-  public void formatsTimeoutToReadable() {
+  void formatsTimeoutToReadable() {
     Locale.setDefault(Locale.UK);
-    assertEquals("\nTimeout: 0 ms.", ErrorMessages.timeout(0));
-    assertEquals("\nTimeout: 1 ms.", ErrorMessages.timeout(1));
-    assertEquals("\nTimeout: 999 ms.", ErrorMessages.timeout(999));
-    assertEquals("\nTimeout: 1 s.", ErrorMessages.timeout(1000));
-    assertEquals("\nTimeout: 1.001 s.", ErrorMessages.timeout(1001));
-    assertEquals("\nTimeout: 1.500 s.", ErrorMessages.timeout(1500));
-    assertEquals("\nTimeout: 4 s.", ErrorMessages.timeout(4000));
+    assertThat(ErrorMessages.timeout(0))
+      .isEqualToIgnoringNewLines("Timeout: 0 ms.");
+    assertThat(ErrorMessages.timeout(1))
+      .isEqualToIgnoringNewLines("Timeout: 1 ms.");
+    assertThat(ErrorMessages.timeout(999))
+      .isEqualToIgnoringNewLines("Timeout: 999 ms.");
+    assertThat(ErrorMessages.timeout(1000))
+      .isEqualToIgnoringNewLines("Timeout: 1 s.");
+    assertThat(ErrorMessages.timeout(1001))
+      .isEqualToIgnoringNewLines("Timeout: 1.001 s.");
+    assertThat(ErrorMessages.timeout(1500))
+      .isEqualToIgnoringNewLines("Timeout: 1.500 s.");
+    assertThat(ErrorMessages.timeout(4000))
+      .isEqualToIgnoringNewLines("Timeout: 4 s.");
   }
 
   @Test
-  public void convertsScreenshotFileNameToCIUrl() {
-    Configuration.reportsUrl = "http://ci.mycompany.com/job/666/artifact/";
-    String currentDir = System.getProperty("user.dir");
-    doReturn(currentDir + "/test-result/12345.png").when(screenshots).takeScreenShot();
+  void convertsScreenshotFileNameToCIUrl() {
+    config.reportsUrl("http://ci.mycompany.com/job/666/artifact/");
+    doReturn(new File("src/test/resources/screenshot.png")).when(webDriver).getScreenshotAs(FILE);
 
-    String screenshot = ErrorMessages.screenshot();
-    assertEquals("\nScreenshot: http://ci.mycompany.com/job/666/artifact/test-result/12345.png", screenshot);
+    String screenshot = ErrorMessages.screenshot(driver);
+    assertThat(screenshot)
+      .startsWith("\nScreenshot: http://ci.mycompany.com/job/666/artifact/build/reports/tests/")
+      .endsWith(".png");
   }
 
   @Test
-  public void returnsScreenshotFileName() {
-    Configuration.reportsUrl = null;
+  void convertsReportUrlForOutsideSavedScreenshot() throws IOException {
+    String reportsUrl = "http://ci.mycompany.com/job/666/artifact/";
+    config.reportsUrl(reportsUrl);
+    config.reportsFolder(Files.createTempDirectory("artifacts-storage").toFile().getAbsolutePath()); //directory, that not in 'user.dir'
+    doReturn(new File("src/test/resources/screenshot.png")).when(webDriver).getScreenshotAs(FILE);
+
+    String screenshot = ErrorMessages.screenshot(driver);
+    assertThat(screenshot)
+      .as("Concatenate reportUrl with screenshot file name if it saved outside of build/project home directories")
+      .startsWith("\nScreenshot: " + reportsUrl + new File(screenshot).getName());
+  }
+
+  @Test
+  void returnsScreenshotFileName() {
+    config.reportsUrl(null);
     String currentDir = System.getProperty("user.dir");
     if (separatorChar == '\\') {
       currentDir = '/' + currentDir.replace('\\', '/');
     }
 
-    doReturn(currentDir + "/test-result/12345.png").when(screenshots).takeScreenShot();
+    doReturn(new File("src/test/resources/screenshot.png")).when(webDriver).getScreenshotAs(FILE);
 
-    String screenshot = ErrorMessages.screenshot();
-    assertEquals("\nScreenshot: file:" + currentDir + "/test-result/12345.png", screenshot);
+    String screenshot = ErrorMessages.screenshot(driver);
+    assertThat(screenshot)
+      .startsWith("\nScreenshot: file:" + currentDir + "/build/reports/tests/")
+      .endsWith(".png");
   }
 
   @Test
-  public void doesNotAddScreenshot_if_screenshotsAreDisabled() {
-    Configuration.screenshots = false;
+  void doesNotAddScreenshot_if_screenshotsAreDisabled() {
+    config.screenshots(false);
 
-    String screenshot = ErrorMessages.screenshot();
-    assertEquals("", screenshot);
-    verify(screenshots, never()).takeScreenShot();
+    String screenshot = ErrorMessages.screenshot(driver);
+    assertThat(screenshot).isNullOrEmpty();
+    verify(webDriver, never()).getScreenshotAs(any());
+  }
+
+  @Test
+  void printHtmlPath_if_savePageSourceIsEnabled() {
+    config.savePageSource(true);
+    config.reportsUrl("http://ci.mycompany.com/job/666/artifact/");
+    doReturn("<html>blah</html>").when(webDriver).getPageSource();
+    doReturn(new File("src/test/resources/screenshot.png")).when(webDriver).getScreenshotAs(FILE);
+
+    String screenshot = ErrorMessages.screenshot(driver);
+    assertThat(screenshot)
+      .startsWith("\nScreenshot: http://ci.mycompany.com/job/666/artifact/build/reports/tests/")
+      .contains(".png\nPage source: http://ci.mycompany.com/job/666/artifact/build/reports/tests/")
+      .endsWith(".html");
   }
 }

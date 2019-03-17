@@ -16,16 +16,25 @@ public class ListSize extends CollectionCondition {
 
   @Override
   public boolean apply(List<WebElement> elements) {
-    return elements.size() == expectedSize;
+    return apply(elements.size());
   }
 
   @Override
   public void fail(WebElementsCollection collection, List<WebElement> elements, Exception lastError, long timeoutMs) {
-    throw new ListSizeMismatch("=", expectedSize, collection, elements, lastError, timeoutMs);
+    throw new ListSizeMismatch(collection.driver(), "=", expectedSize, explanation, collection, elements, lastError, timeoutMs);
+  }
+
+  @Override
+  public boolean applyNull() {
+    return apply(0);
   }
 
   @Override
   public String toString() {
     return String.format("size(%s)", expectedSize);
+  }
+
+  private boolean apply(int size) {
+    return size == expectedSize;
   }
 }

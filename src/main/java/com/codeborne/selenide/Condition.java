@@ -3,16 +3,15 @@ package com.codeborne.selenide;
 import com.codeborne.selenide.conditions.Text;
 import com.codeborne.selenide.impl.Describe;
 import com.codeborne.selenide.impl.Html;
-import com.google.common.base.Predicate;
 import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.WebElement;
 
-import static com.codeborne.selenide.Selenide.getFocusedElement;
+import static org.apache.commons.lang3.StringUtils.defaultString;
 
 /**
  * Conditions to match web elements: checks for visibility, text etc.
  */
-public abstract class Condition implements Predicate<WebElement> {
+public abstract class Condition {
   /**
    * Checks if element is visible
    *
@@ -20,7 +19,7 @@ public abstract class Condition implements Predicate<WebElement> {
    */
   public static final Condition visible = new Condition("visible") {
     @Override
-    public boolean apply(WebElement element) {
+    public boolean apply(Driver driver, WebElement element) {
       return element.isDisplayed();
     }
   };
@@ -32,35 +31,31 @@ public abstract class Condition implements Predicate<WebElement> {
    */
   public static final Condition exist = new Condition("exist") {
     @Override
-    public boolean apply(WebElement element) {
-      element.isDisplayed();
-      return true;
+    public boolean apply(Driver driver, WebElement element) {
+      try {
+        element.isDisplayed();
+        return true;
+      }
+      catch (StaleElementReferenceException e) {
+        return false;
+      }
     }
   };
 
   /**
-   * @deprecated please use {@link #exist} instead, "present" is ambiguous
-   *
-   * Synonym for {@link #exist}.
-   *
-   * <p>Sample: {@code $("input").shouldBe(present);}</p>
-   */
-  @Deprecated
-  public static final Condition present = exist;
-
-  /**
    * Checks that element is not visible or does not exists.
-   *
+   * <p>
    * Opposite to {@link #appear}
    *
    * <p>Sample: {@code $("input").shouldBe(hidden);}</p>
    */
   public static final Condition hidden = new Condition("hidden", true) {
     @Override
-    public boolean apply(WebElement element) {
+    public boolean apply(Driver driver, WebElement element) {
       try {
         return !element.isDisplayed();
-      } catch (StaleElementReferenceException elementHasDisappeared) {
+      }
+      catch (StaleElementReferenceException elementHasDisappeared) {
         return true;
       }
     }
@@ -76,7 +71,7 @@ public abstract class Condition implements Predicate<WebElement> {
   /**
    * Synonym for {@link #visible} - may be used for better readability
    * <p><code>$("#logoutLink").waitUntil(appears, 10000);</code></p>
-
+   * <p>
    * Though the same can be done in a shorter way:
    * <p><code>waitFor(By.id("logoutLink");</code></p>
    */
@@ -97,20 +92,6 @@ public abstract class Condition implements Predicate<WebElement> {
   public static final Condition disappear = hidden;
 
   /**
-   * @deprecated please use {@link #attribute(String, String)} instead
-   * <p>
-   *   Sample:
-   *   <code>$("#mydiv").waitUntil(hasAttribute("fileId", "12345"), 7000);</code>
-   * </p>
-   * @param attributeName name of attribute
-   * @param attributeValue expected value of attribute
-   */
-  @Deprecated
-  public static Condition hasAttribute(String attributeName, String attributeValue) {
-    return attribute(attributeName, attributeValue);
-  }
-
-  /**
    * Check if element has "readonly" attribute (with any value)
    *
    * <p>Sample: <code>$("input").shouldBe(readonly);</code></p>
@@ -128,9 +109,10 @@ public abstract class Condition implements Predicate<WebElement> {
   public static Condition attribute(final String attributeName) {
     return new Condition("attribute") {
       @Override
-      public boolean apply(WebElement element) {
+      public boolean apply(Driver driver, WebElement element) {
         return element.getAttribute(attributeName) != null;
       }
+
       @Override
       public String toString() {
         return name + " " + attributeName;
@@ -141,15 +123,16 @@ public abstract class Condition implements Predicate<WebElement> {
   /**
    * <p>Sample: <code>$("#mydiv").shouldHave(attribute("fileId", "12345"));</code></p>
    *
-   * @param attributeName name of attribute
+   * @param attributeName          name of attribute
    * @param expectedAttributeValue expected value of attribute
    */
   public static Condition attribute(final String attributeName, final String expectedAttributeValue) {
     return new Condition("attribute") {
       @Override
-      public boolean apply(WebElement element) {
+      public boolean apply(Driver driver, WebElement element) {
         return expectedAttributeValue.equals(getAttributeValue(element, attributeName));
       }
+
       @Override
       public String toString() {
         return name + " " + attributeName + '=' + expectedAttributeValue;
@@ -159,7 +142,7 @@ public abstract class Condition implements Predicate<WebElement> {
 
   private static String getAttributeValue(WebElement element, String attributeName) {
     String attr = element.getAttribute(attributeName);
-    return attr == null ? "" : attr.trim();
+    return attr == null ? "" : attr;
   }
 
   /**
@@ -173,9 +156,10 @@ public abstract class Condition implements Predicate<WebElement> {
   public static Condition value(final String expectedValue) {
     return new Condition("value") {
       @Override
-      public boolean apply(WebElement element) {
+      public boolean apply(Driver driver, WebElement element) {
         return Html.text.contains(getAttributeValue(element, "value"), expectedValue);
       }
+
       @Override
       public String toString() {
         return name + " '" + expectedValue + "'";
@@ -185,6 +169,7 @@ public abstract class Condition implements Predicate<WebElement> {
 
   /**
    * <p>Sample: <code>$("#input").shouldHave(exactValue("John"));</code></p>
+   *
    * @param value expected value of input field
    */
   public static Condition exactValue(String value) {
@@ -192,17 +177,8 @@ public abstract class Condition implements Predicate<WebElement> {
   }
 
   /**
-   * @deprecated please use {@link #value(String)} instead
-   * <p>Sample: <code>$("#myInput").waitUntil(hasValue("John"), 5000)</p>
-   * @param value expected value of input field
-   */
-  @Deprecated
-  public static Condition hasValue(String value) {
-    return value(value);
-  }
-
-  /**
    * <p>Sample: <code>$("#input").shouldHave(name("username"))</code></p>
+   *
    * @param name expected name of input field
    */
   public static Condition name(String name) {
@@ -211,6 +187,7 @@ public abstract class Condition implements Predicate<WebElement> {
 
   /**
    * <p>Sample: <code>$("#input").shouldHave(type("checkbox"))</code></p>
+   *
    * @param type expected type of input field
    */
   public static Condition type(String type) {
@@ -219,6 +196,7 @@ public abstract class Condition implements Predicate<WebElement> {
 
   /**
    * <p>Sample: <code>$("#input").shouldHave(id("myForm"))</code></p>
+   *
    * @param id expected id of input field
    */
   public static Condition id(String id) {
@@ -228,7 +206,7 @@ public abstract class Condition implements Predicate<WebElement> {
   /**
    * 1) For input element, check that value is missing or empty
    * <p>Sample: <code>$("#input").shouldBe(empty)</code></p>
-   *
+   * <p>
    * 2) For other elements, check that text is empty
    * <p>Sample: <code>$("h2").shouldBe(empty)</code></p>
    */
@@ -253,28 +231,15 @@ public abstract class Condition implements Predicate<WebElement> {
   public static Condition matchText(final String regex) {
     return new Condition("match text") {
       @Override
-      public boolean apply(WebElement element) {
+      public boolean apply(Driver driver, WebElement element) {
         return Html.text.matches(element.getText(), regex);
       }
+
       @Override
       public String toString() {
         return name + " '" + regex + '\'';
       }
     };
-  }
-
-  /**
-   * @deprecated please use {@link #text(String)} instead
-   * <p>Sample: <code>$("h1").waitUntil(hasText("Hello"), 10000)</code></p>
-   *
-   * <p>Case insensitive</p>
-   *
-   * NB! Ignores multiple whitespaces between words
-   * @param text expected text of HTML element
-   */
-  @Deprecated
-  public static Condition hasText(String text) {
-    return text(text);
   }
 
   /**
@@ -291,6 +256,39 @@ public abstract class Condition implements Predicate<WebElement> {
   }
 
   /**
+   * Checks for selected text on a given input web element
+   *
+   * <p>Sample: {@code $("input").shouldHave(selectedText("Text"))}</p>
+   *
+   * <p>NB! Case sensitive</p>
+   *
+   * @param expectedText expected selected text of the element
+   */
+  public static Condition selectedText(final String expectedText) {
+    return new Condition("selectedText") {
+      String actualResult = "";
+
+      @Override
+      public boolean apply(Driver driver, WebElement element) {
+        actualResult =  driver.executeJavaScript(
+          "return arguments[0].value.substring(arguments[0].selectionStart, arguments[0].selectionEnd);", element);
+        return actualResult.equals(expectedText);
+      }
+
+      @Override
+      public String actualValue(Driver driver, WebElement element) {
+        return "'" + actualResult + "'";
+      }
+
+      @Override
+      public String toString() {
+        return name + " '" + expectedText + '\'';
+      }
+    };
+  }
+
+
+  /**
    * <p>Sample: <code>$("h1").shouldHave(textCaseSensitive("Hello\s*John"))</code></p>
    *
    * <p>NB! Ignores multiple whitespaces between words</p>
@@ -300,9 +298,10 @@ public abstract class Condition implements Predicate<WebElement> {
   public static Condition textCaseSensitive(final String text) {
     return new Condition("textCaseSensitive") {
       @Override
-      public boolean apply(WebElement element) {
+      public boolean apply(Driver driver, WebElement element) {
         return Html.text.containsCaseSensitive(element.getText(), text);
       }
+
       @Override
       public String toString() {
         return name + " '" + text + '\'';
@@ -321,9 +320,10 @@ public abstract class Condition implements Predicate<WebElement> {
   public static Condition exactText(final String text) {
     return new Condition("exact text") {
       @Override
-      public boolean apply(WebElement element) {
+      public boolean apply(Driver driver, WebElement element) {
         return Html.text.equals(element.getText(), text);
       }
+
       @Override
       public String toString() {
         return name + " '" + text + '\'';
@@ -341,25 +341,15 @@ public abstract class Condition implements Predicate<WebElement> {
   public static Condition exactTextCaseSensitive(final String text) {
     return new Condition("exact text case sensitive") {
       @Override
-      public boolean apply(WebElement element) {
+      public boolean apply(Driver driver, WebElement element) {
         return Html.text.equalsCaseSensitive(element.getText(), text);
       }
+
       @Override
       public String toString() {
         return name + " '" + text + '\'';
       }
     };
-  }
-
-  /**
-   * @deprecated don't use this method, it is public by accident, and will be turned to private soon
-   *
-   * @see {@link #cssClass(String)} instead of using it
-   */
-  @Deprecated
-  public static boolean hasClass(WebElement element, String cssClass) {
-    String classes = element.getAttribute("class");
-    return classes != null && contains(classes.split(" "), cssClass);
   }
 
   private static <T> boolean contains(T[] objects, T object) {
@@ -372,26 +362,16 @@ public abstract class Condition implements Predicate<WebElement> {
   }
 
   /**
-   * @deprecated please use {@link #cssClass(String)} instead of this method, which is exactly the same
-   *
-   * @see #cssClass(String)
-   *
-   * <p>Sample: <code>$("input").waitUntil(hasClass("blocked"), 7000);</code></p>
-   */
-  @Deprecated
-  public static Condition hasClass(String cssClass) {
-    return cssClass(cssClass);
-  }
-
-  /**
    * <p>Sample: <code>$("input").shouldHave(cssClass("active"));</code></p>
    */
   public static Condition cssClass(final String cssClass) {
     return new Condition("css class") {
       @Override
-      public boolean apply(WebElement element) {
-        return hasClass(element, cssClass);
+      public boolean apply(Driver driver, WebElement element) {
+        String classes = element.getAttribute("class");
+        return classes != null && contains(classes.split(" "), cssClass);
       }
+
       @Override
       public String toString() {
         return name + " '" + cssClass + '\'';
@@ -400,102 +380,160 @@ public abstract class Condition implements Predicate<WebElement> {
   }
 
   /**
+   * Checks if css property (style) applies for the element.
+   * Both explicit and computed properties are supported.
+   * <p>
+   * Note that if css property is missing {@link WebElement#getCssValue} return empty string.
+   * In this case you should assert against empty string.
+   * <p>
+   * Sample:
+   * <p>
+   * {@code <input style="font-size: 12">}
+   * <p>
+   * {@code $("input").shouldHave(cssValue("font-size", "12"));}
+   * <p>
+   * {@code $("input").shouldHave(cssValue("display", "block"));}
+   *
+   * @param propertyName  the css property (style) name  of the element
+   * @param expectedValue expected value of css property
+   * @see WebElement#getCssValue
+   */
+  public static Condition cssValue(final String propertyName, final String expectedValue) {
+    return new Condition("cssValue") {
+      @Override
+      public boolean apply(Driver driver, WebElement element) {
+        String actualValue = element.getCssValue(propertyName);
+        return defaultString(expectedValue).equalsIgnoreCase(defaultString(actualValue));
+      }
+
+      @Override
+      public String actualValue(Driver driver, WebElement element) {
+        return element.getCssValue(propertyName);
+      }
+
+      @Override
+      public String toString() {
+        return name + " " + propertyName + '=' + expectedValue;
+      }
+    };
+  }
+
+  /**
    * Check if browser focus is currently in given element.
    */
   public static final Condition focused = new Condition("focused") {
-    @Override public boolean apply(WebElement webElement) {
-      WebElement focusedElement = getFocusedElement();
+    private WebElement getFocusedElement(Driver driver) {
+      return (WebElement) driver.executeJavaScript("return document.activeElement");
+    }
+
+    @Override
+    public boolean apply(Driver driver, WebElement webElement) {
+      WebElement focusedElement = getFocusedElement(driver);
       return focusedElement != null && focusedElement.equals(webElement);
     }
 
-    @Override public String actualValue(WebElement webElement) {
-      WebElement focusedElement = getFocusedElement();
+    @Override
+    public String actualValue(Driver driver, WebElement webElement) {
+      WebElement focusedElement = getFocusedElement(driver);
       return focusedElement == null ? "No focused focusedElement found " :
-          "Focused focusedElement: " + Describe.describe(focusedElement) +
-          ", current focusedElement: " + Describe.describe(webElement);
+        "Focused focusedElement: " + Describe.describe(driver, focusedElement) +
+          ", current focusedElement: " + Describe.describe(driver, webElement);
     }
   };
 
   /**
    * Checks that element is not disabled
+   *
    * @see WebElement#isEnabled()
    */
   public static final Condition enabled = new Condition("enabled") {
-    @Override public boolean apply(WebElement element) {
+    @Override
+    public boolean apply(Driver driver, WebElement element) {
       return element.isEnabled();
     }
 
-    @Override public String actualValue(WebElement element) {
+    @Override
+    public String actualValue(Driver driver, WebElement element) {
       return element.isEnabled() ? "enabled" : "disabled";
     }
   };
 
   /**
    * Checks that element is disabled
+   *
    * @see WebElement#isEnabled()
    */
   public static final Condition disabled = new Condition("disabled") {
-    @Override public boolean apply(WebElement element) {
+    @Override
+    public boolean apply(Driver driver, WebElement element) {
       return !element.isEnabled();
     }
 
-    @Override public String actualValue(WebElement element) {
+    @Override
+    public String actualValue(Driver driver, WebElement element) {
       return element.isEnabled() ? "enabled" : "disabled";
     }
   };
 
   /**
    * Checks that element is selected
+   *
    * @see WebElement#isSelected()
    */
   public static final Condition selected = new Condition("selected") {
-    @Override public boolean apply(WebElement element) {
+    @Override
+    public boolean apply(Driver driver, WebElement element) {
       return element.isSelected();
     }
 
-    @Override public String actualValue(WebElement element) {
+    @Override
+    public String actualValue(Driver driver, WebElement element) {
       return String.valueOf(element.isSelected());
     }
   };
 
   /**
    * Checks that checkbox is checked
+   *
    * @see WebElement#isSelected()
    */
   public static final Condition checked = new Condition("checked") {
-    @Override public boolean apply(WebElement element) {
+    @Override
+    public boolean apply(Driver driver, WebElement element) {
       return element.isSelected();
     }
 
-    @Override public String actualValue(WebElement element) {
+    @Override
+    public String actualValue(Driver driver, WebElement element) {
       return String.valueOf(element.isSelected());
     }
   };
 
   /**
    * Negate given condition.
-   *
+   * <p>
    * Used for methods like $.shouldNot(exist), $.shouldNotBe(visible)
-   *
+   * <p>
    * Typically you don't need to use it.
    */
   public static Condition not(final Condition condition) {
     return new Condition("not " + condition.name, !condition.nullIsAllowed) {
       @Override
-      public boolean apply(WebElement element) {
-        return !condition.apply(element);
+      public boolean apply(Driver driver, WebElement element) {
+        return !condition.apply(driver, element);
       }
 
       @Override
-      public String actualValue(WebElement element) {
-        return condition.actualValue(element);
+      public String actualValue(Driver driver, WebElement element) {
+        return condition.actualValue(driver, element);
       }
     };
   }
 
   /**
    * Check if element matches ALL given conditions.
-   * @param name Name of this condition, like "empty" (meaning e.g. empty text AND empty value).
+   *
+   * @param name      Name of this condition, like "empty" (meaning e.g. empty text AND empty value).
    * @param condition Conditions to match.
    * @return logical AND for given conditions.
    */
@@ -504,9 +542,9 @@ public abstract class Condition implements Predicate<WebElement> {
       private Condition lastFailedCondition;
 
       @Override
-      public boolean apply(WebElement element) {
+      public boolean apply(Driver driver, WebElement element) {
         for (Condition c : condition) {
-          if (!c.apply(element)) {
+          if (!c.apply(driver, element)) {
             lastFailedCondition = c;
             return false;
           }
@@ -515,8 +553,8 @@ public abstract class Condition implements Predicate<WebElement> {
       }
 
       @Override
-      public String actualValue(WebElement element) {
-        return lastFailedCondition == null ? null : lastFailedCondition.actualValue(element);
+      public String actualValue(Driver driver, WebElement element) {
+        return lastFailedCondition == null ? null : lastFailedCondition.actualValue(driver, element);
       }
 
       @Override
@@ -528,7 +566,8 @@ public abstract class Condition implements Predicate<WebElement> {
 
   /**
    * Check if element matches ANY of given conditions.
-   * @param name Name of this condition, like "error" (meaning e.g. "error" OR "failed").
+   *
+   * @param name      Name of this condition, like "error" (meaning e.g. "error" OR "failed").
    * @param condition Conditions to match.
    * @return logical OR for given conditions.
    */
@@ -537,9 +576,9 @@ public abstract class Condition implements Predicate<WebElement> {
       private Condition firstFailedCondition;
 
       @Override
-      public boolean apply(WebElement element) {
+      public boolean apply(Driver driver, WebElement element) {
         for (Condition c : condition) {
-          if (c.apply(element)) {
+          if (c.apply(driver, element)) {
             return true;
           }
           else if (firstFailedCondition == null) {
@@ -550,8 +589,8 @@ public abstract class Condition implements Predicate<WebElement> {
       }
 
       @Override
-      public String actualValue(WebElement element) {
-        return firstFailedCondition == null ? null : firstFailedCondition.actualValue(element);
+      public String actualValue(Driver driver, WebElement element) {
+        return firstFailedCondition == null ? null : firstFailedCondition.actualValue(driver, element);
       }
 
       @Override
@@ -564,6 +603,7 @@ public abstract class Condition implements Predicate<WebElement> {
   /**
    * Used to form human-readable condition expression
    * Example element.should(be(visible),have(text("abc"))
+   *
    * @param delegate next condition to wrap
    * @return Condition
    */
@@ -574,6 +614,7 @@ public abstract class Condition implements Predicate<WebElement> {
   /**
    * Used to form human-readable condition expression
    * Example element.should(be(visible),have(text("abc"))
+   *
    * @param delegate next condition to wrap
    * @return Condition
    */
@@ -584,13 +625,13 @@ public abstract class Condition implements Predicate<WebElement> {
   private static Condition wrap(final String prefix, final Condition delegate) {
     return new Condition(delegate.name, delegate.applyNull()) {
       @Override
-      public boolean apply(WebElement element) {
-        return delegate.apply(element);
+      public boolean apply(Driver driver, WebElement element) {
+        return delegate.apply(driver, element);
       }
 
       @Override
-      public String actualValue(WebElement element) {
-        return delegate.actualValue(element);
+      public String actualValue(Driver driver, WebElement element) {
+        return delegate.actualValue(driver, element);
       }
 
       @Override
@@ -611,13 +652,13 @@ public abstract class Condition implements Predicate<WebElement> {
     }
 
     @Override
-    public boolean apply(WebElement element) {
-      return delegate.apply(element);
+    public boolean apply(Driver driver, WebElement element) {
+      return delegate.apply(driver, element);
     }
 
     @Override
-    public String actualValue(WebElement element) {
-      return delegate.actualValue(element);
+    public String actualValue(Driver driver, WebElement element) {
+      return delegate.actualValue(driver, element);
     }
 
     @Override
@@ -644,8 +685,7 @@ public abstract class Condition implements Predicate<WebElement> {
    * @param element given WebElement
    * @return true if element matches condition
    */
-  @Override
-  public abstract boolean apply(WebElement element);
+  public abstract boolean apply(Driver driver, WebElement element);
 
   public final boolean applyNull() {
     return nullIsAllowed;
@@ -656,10 +696,11 @@ public abstract class Condition implements Predicate<WebElement> {
    * Used in error reporting.
    * Optional. Makes sense only if you need to add some additional important info to error message.
    *
+   * @param driver
    * @param element given WebElement
    * @return any string that needs to be appended to error message.
    */
-  public String actualValue(WebElement element) {
+  public String actualValue(Driver driver, WebElement element) {
     return null;
   }
 
@@ -674,4 +715,5 @@ public abstract class Condition implements Predicate<WebElement> {
   public String toString() {
     return name;
   }
+
 }

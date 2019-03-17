@@ -1,22 +1,21 @@
 package integration;
 
 import com.codeborne.selenide.ex.ElementNotFound;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static com.codeborne.selenide.Condition.disabled;
 import static com.codeborne.selenide.Condition.enabled;
-import static com.codeborne.selenide.Selenide.$;
 
-public class ElementEnabledTest extends IntegrationTest {
+class ElementEnabledTest extends ITest {
 
-  @Before
-  public void setUp() {
+  @BeforeEach
+  void setUp() {
     openFile("page_with_disabled_elements.html");
   }
 
   @Test
-  public void canCheckIfElementIsEnabled() {
+  void canCheckIfElementIsEnabled() {
     $("#login-button").shouldNotBe(enabled);
     $("#login-button").shouldBe(disabled);
 
@@ -24,13 +23,14 @@ public class ElementEnabledTest extends IntegrationTest {
     $("#username").shouldNotBe(disabled);
   }
 
-  @Test(expected = ElementNotFound.class)
-  public void unexistingElementIsNotEnabled() {
-    $("#unexisting-element").shouldBe(enabled);
+  @Test
+  void unexistingElementIsNotEnabled() {
+    assertThatThrownBy(() -> $("#unexisting-element").shouldBe(enabled))
+      .isInstanceOf(ElementNotFound.class);
   }
 
   @Test
-  public void hiddenElementIsEnabled() {
+  void hiddenElementIsEnabled() {
     $("#captcha").shouldBe(enabled);
     $("#captcha").shouldNotBe(disabled);
   }

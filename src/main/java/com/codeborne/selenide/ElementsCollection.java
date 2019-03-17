@@ -1,74 +1,123 @@
 package com.codeborne.selenide;
 
 import com.codeborne.selenide.ex.UIAssertionError;
-import com.codeborne.selenide.impl.*;
+import com.codeborne.selenide.impl.BySelectorCollection;
+import com.codeborne.selenide.impl.Cleanup;
+import com.codeborne.selenide.impl.CollectionElement;
+import com.codeborne.selenide.impl.CollectionElementByCondition;
+import com.codeborne.selenide.impl.Describe;
+import com.codeborne.selenide.impl.FilteringCollection;
+import com.codeborne.selenide.impl.HeadOfCollection;
+import com.codeborne.selenide.impl.LastCollectionElement;
+import com.codeborne.selenide.impl.SelenideElementIterator;
+import com.codeborne.selenide.impl.SelenideElementListIterator;
+import com.codeborne.selenide.impl.TailOfCollection;
+import com.codeborne.selenide.impl.WebElementsCollection;
+import com.codeborne.selenide.impl.WebElementsCollectionWrapper;
 import com.codeborne.selenide.logevents.SelenideLog;
 import com.codeborne.selenide.logevents.SelenideLogger;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptException;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.WebElement;
 
-import java.util.*;
+import java.util.AbstractList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
 
 import static com.codeborne.selenide.Condition.not;
-import static com.codeborne.selenide.Configuration.*;
-import static com.codeborne.selenide.Selenide.$;
-import static com.codeborne.selenide.Selenide.sleep;
 import static com.codeborne.selenide.logevents.ErrorsCollector.validateAssertionMode;
 import static com.codeborne.selenide.logevents.LogEvent.EventStatus.PASS;
 import static java.util.stream.Collectors.toList;
 
 public class ElementsCollection extends AbstractList<SelenideElement> {
   private final WebElementsCollection collection;
-  private List<WebElement> actualElements;
-  private Exception lastError;
 
   public ElementsCollection(WebElementsCollection collection) {
     this.collection = collection;
   }
 
+  public ElementsCollection(Driver driver, Collection<? extends WebElement> elements) {
+    this(new WebElementsCollectionWrapper(driver, elements));
+  }
+
+  public ElementsCollection(Driver driver, String cssSelector) {
+    this(driver, By.cssSelector(cssSelector));
+  }
+
+  public ElementsCollection(Driver driver, By seleniumSelector) {
+    this(new BySelectorCollection(driver, seleniumSelector));
+  }
+
+  public ElementsCollection(Driver driver, WebElement parent, String cssSelector) {
+    this(driver, parent, By.cssSelector(cssSelector));
+  }
+
+  public ElementsCollection(Driver driver, WebElement parent, By seleniumSelector) {
+    this(new BySelectorCollection(driver, parent, seleniumSelector));
+  }
+
   /**
-   * Checks is the collection is of given size
-   *
-   * @param expectedSize
-   * @return ElementsCollection
+   * Deprecated. Use {@code $$.shouldHave(size(expectedSize))} instead.
    */
   public ElementsCollection shouldHaveSize(int expectedSize) {
     return shouldHave(CollectionCondition.size(expectedSize));
   }
 
   /**
-   * $$(".error").shouldBe(empty)
+   * For example: {@code $$(".error").shouldBe(empty)}
    */
   public ElementsCollection shouldBe(CollectionCondition... conditions) {
-    return should("be", conditions);
+    return should("be", driver().config().timeout(), conditions);
+  }
+
+  public ElementsCollection shouldBe(CollectionCondition condition, long timeoutMs) {
+    return should("be", timeoutMs, toArray(condition));
   }
 
   /**
-   * $$(".error").shouldHave(size(3))
-   * $$(".error").shouldHave(texts("Error1", "Error2"))
+   * For example:
+   * {@code $$(".error").shouldHave(size(3))}
+   * {@code $$(".error").shouldHave(texts("Error1", "Error2"))}
    */
   public ElementsCollection shouldHave(CollectionCondition... conditions) {
-    return should("have", conditions);
+    return should("have", driver().config().timeout(), conditions);
   }
 
-  protected ElementsCollection should(String prefix, CollectionCondition... conditions) {
-    validateAssertionMode();
+  /**
+   * Check if a collection matches given condition within given period
+   *
+   * @param timeoutMs maximum waiting time in milliseconds
+   */
+  public ElementsCollection shouldHave(CollectionCondition condition, long timeoutMs) {
+    return should("have", timeoutMs, toArray(condition));
+  }
 
-    SelenideLog log = SelenideLogger.beginStep(collection.description(), "should " + prefix, conditions);
+  private CollectionCondition[] toArray(CollectionCondition condition) {
+    return new CollectionCondition[]{condition};
+  }
+
+  protected ElementsCollection should(String prefix, long timeoutMs, CollectionCondition... conditions) {
+    validateAssertionMode(driver().config());
+
+    SelenideLog log = SelenideLogger.beginStep(collection.description(), "should " + prefix, (Object[]) conditions);
     try {
       for (CollectionCondition condition : conditions) {
-        waitUntil(condition, collectionsTimeout);
+        waitUntil(condition, timeoutMs);
       }
       SelenideLogger.commitStep(log, PASS);
       return this;
     }
     catch (Error error) {
-      SelenideLogger.commitStep(log, error);
-      switch (assertionMode) {
+      Error wrappedError = UIAssertionError.wrap(driver(), error, timeoutMs);
+      SelenideLogger.commitStep(log, wrappedError);
+      switch (driver().config().assertionMode()) {
         case SOFT:
           return this;
         default:
-          throw UIAssertionError.wrap(error, collectionsTimeout);
+          throw wrappedError;
       }
     }
     catch (RuntimeException e) {
@@ -78,41 +127,51 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
   }
 
   protected void waitUntil(CollectionCondition condition, long timeoutMs) {
-    lastError = null;
-    final long startTime = System.currentTimeMillis();
-    boolean conditionMatched = false;
+    Exception lastError = null;
+    List<WebElement> actualElements = null;
+    Stopwatch stopwatch = new Stopwatch(timeoutMs);
     do {
       try {
-        actualElements = collection.getActualElements();
+        actualElements = collection.getElements();
         if (condition.apply(actualElements)) {
-          if (conditionMatched) {
-            return;
-          } else {
-            conditionMatched = true;
-            sleep(collectionsPollingInterval);
-            continue;
-          }
-        } else {
-          conditionMatched = false;
+          return;
         }
-      } catch (WebDriverException elementNotFound) {
+      }
+      catch (JavascriptException e) {
+        throw e;
+      }
+      catch (WebDriverException elementNotFound) {
         lastError = elementNotFound;
 
         if (Cleanup.of.isInvalidSelectorError(elementNotFound)) {
           throw Cleanup.of.wrap(elementNotFound);
         }
       }
-      sleep(collectionsPollingInterval);
-    }
-    while (System.currentTimeMillis() - startTime < timeoutMs);
+      catch (IndexOutOfBoundsException outOfCollection) {
+        if (condition.applyNull()) {
+          return;
+        }
 
-    if (!condition.apply(actualElements)) {
-      condition.fail(collection, actualElements, lastError, timeoutMs);
+        throw outOfCollection;
+      }
+      sleep(driver().config().pollingInterval());
+    }
+    while (!stopwatch.isTimeoutReached());
+    condition.fail(collection, actualElements, lastError, timeoutMs);
+  }
+
+  void sleep(long ms) {
+    try {
+      Thread.sleep(ms);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException(e);
     }
   }
 
   /**
-   * Filters collection elements based on the given condition
+   * Filters collection elements based on the given condition (lazy evaluation)
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied
    * @param condition
    * @return ElementsCollection
    */
@@ -121,7 +180,8 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
   }
 
   /**
-   * Filters collection elements based on the given condition
+   * Filters collection elements based on the given condition (lazy evaluation)
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied
    * @see #filter(Condition)
    * @param condition
    * @return ElementsCollection
@@ -131,7 +191,8 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
   }
 
   /**
-   * Filters elements excluding those which met the given condition
+   * Filters elements excluding those which met the given condition (lazy evaluation)
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied
    * @param condition
    * @return ElementsCollection
    */
@@ -140,7 +201,8 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
   }
 
   /**
-   * Filters elements excluding those which met the given condition
+   * Filters elements excluding those which met the given condition (lazy evaluation)
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied
    * @see #exclude(Condition)
    * @param condition
    * @return ElementsCollection
@@ -150,7 +212,8 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
   }
 
   /**
-   * Find the first element which met the given condition
+   * Find the first element which met the given condition (lazy evaluation)
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied
    * @param condition
    * @return SelenideElement
    */
@@ -159,7 +222,8 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
   }
 
   /**
-   * Find the first element which met the given condition
+   * Find the first element which met the given condition (lazy evaluation)
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied
    * @see #find(Condition)
    * @param condition
    * @return SelenideElement
@@ -168,11 +232,8 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
     return find(condition);
   }
 
-  private List<WebElement> getActualElements() {
-    if (actualElements == null) {
-      actualElements = collection.getActualElements();
-    }
-    return actualElements;
+  private List<WebElement> getElements() {
+    return collection.getElements();
   }
 
   /**
@@ -180,15 +241,7 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
    * @return array of texts
    */
   public List<String> texts() {
-    return texts(getActualElements());
-  }
-
-  /**
-   * @deprecated Use method com.codeborne.selenide.ElementsCollection#texts() that returns List instead of array
-   */
-  @Deprecated
-  public String[] getTexts() {
-    return getTexts(getActualElements());
+    return texts(getElements());
   }
 
   /**
@@ -197,21 +250,7 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
    * @return Array of texts (or exceptions in case of any WebDriverExceptions)
    */
   public static List<String> texts(Collection<WebElement> elements) {
-    return elements.stream().map(e -> getText(e)).collect(toList());
-  }
-
-  /**
-   * @deprecated Use method com.codeborne.selenide.ElementsCollection#texts(java.util.Collection) 
-   *              that returns List instead of array
-   */
-  @Deprecated
-  public static String[] getTexts(Collection<WebElement> elements) {
-    String[] texts = new String[elements.size()];
-    int i = 0;
-    for (WebElement element : elements) {
-      texts[i++] = getText(element);
-    }
-    return texts;
+    return elements.stream().map(ElementsCollection::getText).collect(toList());
   }
 
   private static String getText(WebElement element) {
@@ -227,7 +266,7 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
    * @param elements
    * @return String
    */
-  public static String elementsToString(Collection<WebElement> elements) {
+  public static String elementsToString(Driver driver, Collection<WebElement> elements) {
     if (elements == null) {
       return "[not loaded yet...]";
     }
@@ -242,19 +281,28 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
       if (sb.length() > 4) {
         sb.append(",\n\t");
       }
-      sb.append($(element));
+      sb.append(Describe.describe(driver, element));
     }
     sb.append("\n]");
     return sb.toString();
   }
 
+  /**
+   * Gets the n-th element of collection (lazy evaluation)
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied (.click(), should..() etc.)
+   *
+   * @param index 0..N
+   * @return
+   */
   @Override
   public SelenideElement get(int index) {
     return CollectionElement.wrap(collection, index);
   }
 
   /**
-   * return the first element of the collection
+   * returns the first element of the collection
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied (.click(), should..() etc.)
+   * NOTICE: $(css) is faster and returns the same result as $$(css).first()
    * @return
    */
   public SelenideElement first() {
@@ -262,34 +310,93 @@ public class ElementsCollection extends AbstractList<SelenideElement> {
   }
 
   /**
-   * return the last element of the collection
+   * returns the last element of the collection (lazy evaluation)
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied (.click(), should..() etc.)
    * @return
    */
   public SelenideElement last() {
-    return get(size() - 1);
+    return LastCollectionElement.wrap(collection);
   }
 
+  /**
+   * returns the first n elements of the collection (lazy evaluation)
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied (.click(), should..() etc.)
+   * @param elements number of elements 1..N
+   */
+  public ElementsCollection first(int elements) {
+    return new ElementsCollection(new HeadOfCollection(collection, elements));
+  }
+
+  /**
+   * returns the last n elements of the collection (lazy evaluation)
+   * ATTENTION! Doesn't start any search yet. Search will be started when action or assert is applied (.click(), should..() etc.)
+   * @param elements number of elements 1..N
+   */
+  public ElementsCollection last(int elements) {
+    return new ElementsCollection(new TailOfCollection(collection, elements));
+  }
+
+  /**
+   * return actual size of the collection, doesn't wait on collection to be loaded.
+   * ATTENTION not recommended for use in tests. Use collection.shouldHave(size(n)); for assertions instead.
+   * @return
+   */
   @Override
   public int size() {
-    return getActualElements().size();
+    try {
+      return getElements().size();
+    } catch (IndexOutOfBoundsException outOfCollection) {
+      return 0;
+    }
   }
 
   @Override
   public Iterator<SelenideElement> iterator() {
-    return new SelenideElementIterator(collection);
+    return new SelenideElementIterator(fetch());
   }
 
   @Override
   public ListIterator<SelenideElement> listIterator(int index) {
-    return new SelenideElementListIterator(collection, index);
+    return new SelenideElementListIterator(fetch(), index);
+  }
+
+  private WebElementsCollectionWrapper fetch() {
+    List<WebElement> fetchedElements = collection.getElements();
+    return new WebElementsCollectionWrapper(driver(), fetchedElements);
+  }
+
+  @Override
+  public Object[] toArray() {
+    List<WebElement> fetchedElements = collection.getElements();
+    Object[] result = new Object[fetchedElements.size()];
+    for (int i = 0; i < result.length; i++) {
+      result[i] = CollectionElement.wrap(collection, i);
+    }
+    return result;
+  }
+
+  /**
+   * Takes the snapshot of current state of this collection.
+   * Succeeding calls to this object WILL NOT RELOAD collection element from browser.
+   *
+   * Use it to speed up your tests - but only if you know that collection will not be changed during the test.
+   *
+   * @return current state of this collection
+   */
+  public ElementsCollection snapshot() {
+    return new ElementsCollection(fetch());
   }
 
   @Override
   public String toString() {
     try {
-      return elementsToString(getActualElements());
+      return elementsToString(driver(), getElements());
     } catch (Exception e) {
       return String.format("[%s]", Cleanup.of.webdriverExceptionMessage(e));
     }
+  }
+
+  private Driver driver() {
+    return collection.driver();
   }
 }

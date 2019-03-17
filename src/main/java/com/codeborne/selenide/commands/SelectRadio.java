@@ -13,8 +13,16 @@ import static com.codeborne.selenide.Condition.value;
 import static com.codeborne.selenide.impl.WebElementWrapper.wrap;
 
 public class SelectRadio implements Command<SelenideElement> {
-  Click click = new Click();
-  
+  private Click click;
+
+  public SelectRadio() {
+    this.click = new Click();
+  }
+
+  public SelectRadio(Click click) {
+    this.click = click;
+  }
+
   @Override
   public SelenideElement execute(SelenideElement proxy, WebElementSource locator, Object[] args) {
     String value = (String) args[0];
@@ -22,11 +30,11 @@ public class SelectRadio implements Command<SelenideElement> {
     for (WebElement radio : matchingRadioButtons) {
       if (value.equals(radio.getAttribute("value"))) {
         if (radio.getAttribute("readonly") != null)
-          throw new InvalidStateException("Cannot select readonly radio button");
-        click.click(radio);
-        return wrap(radio);
+          throw new InvalidStateException(locator.driver(), "Cannot select readonly radio button");
+        click.click(locator.driver(), radio);
+        return wrap(locator.driver(), radio);
       }
     }
-    throw new ElementNotFound(locator.getSearchCriteria(), value(value));
+    throw new ElementNotFound(locator.driver(), locator.getSearchCriteria(), value(value));
   }
 }

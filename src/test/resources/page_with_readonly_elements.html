@@ -6,7 +6,7 @@
   <script type="text/javascript" src="jquery.min.js" language="JavaScript"></script>
   <script type="text/javascript">
     var commandDuration = 100;
-    
+
     function scheduleEnableInputs() {
       setTimeout(enableInputs, 3 * commandDuration);
       return false;
@@ -17,10 +17,11 @@
         $(this).removeAttr('readonly');
       });
     }
-    
+
     $(function () {
       $('#enable-inputs').on('click', scheduleEnableInputs)
     });
+
   </script>
 </head>
 <body>
@@ -45,11 +46,13 @@
         <input name="username" value="" readonly/>
       </label> <br/>
       <label>Password:
-        <input name="password" value="" maxlength="24"/>
+        <input name="password" value="" disabled maxlength="24"/>
       </label> <br/>
       <input type="checkbox" name="rememberMe" readonly>Remember me<br/><br/>
-      
+      <input type="checkbox" name="disabledCheckbox" disabled>Disabled<br/><br/>
+
       <textarea id="text-area" rows="5" cols="40" readonly></textarea>
+      <textarea id="text-area-disabled" rows="5" cols="40" disabled></textarea>
     </fieldset>
   </form>
 </div>

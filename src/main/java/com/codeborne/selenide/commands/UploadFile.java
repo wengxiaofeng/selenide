@@ -1,15 +1,18 @@
 package com.codeborne.selenide.commands;
 
 import com.codeborne.selenide.Command;
+import com.codeborne.selenide.Config;
+import com.codeborne.selenide.Driver;
 import com.codeborne.selenide.SelenideElement;
+import com.codeborne.selenide.Stopwatch;
 import com.codeborne.selenide.impl.Describe;
 import com.codeborne.selenide.impl.WebElementSource;
+import org.openqa.selenium.ElementNotInteractableException;
 import org.openqa.selenium.WebElement;
 
 import java.io.File;
 import java.io.IOException;
-
-import static com.codeborne.selenide.Selenide.executeJavaScript;
+import java.util.List;
 
 public class UploadFile implements Command<File> {
   @Override
@@ -26,12 +29,18 @@ public class UploadFile implements Command<File> {
     }
 
     WebElement inputField = locator.getWebElement();
-    File uploadedFile = uploadFile(inputField, file[0]);
+    File uploadedFile = uploadFile(locator.driver(), inputField, file[0]);
 
     if (file.length > 1) {
       SelenideElement form = proxy.closest("form");
+      List<WebElement> newInputs = cloneInputField(locator.driver(), form, inputField, file.length - 1);
+
+      Config config = locator.driver().config();
+      Stopwatch stopwatch = new Stopwatch(config.timeout());
+
       for (int i = 1; i < file.length; i++) {
-        uploadFile(cloneInputField(form, inputField), file[i]);
+        WebElement newInput = newInputs.get(i - 1);
+        uploadSingleFile(config, file[i], stopwatch, newInput);
       }
     }
 
@@ -39,9 +48,24 @@ public class UploadFile implements Command<File> {
 
   }
 
-  protected File uploadFile(WebElement inputField, File file) throws IOException {
+  private void uploadSingleFile(Config config, File file, Stopwatch stopwatch, WebElement newInput) throws IOException {
+    do {
+      try {
+        newInput.sendKeys(file.getCanonicalPath());
+        return;
+      }
+      catch (ElementNotInteractableException notInteractable) {
+        if (stopwatch.isTimeoutReached()) {
+          throw notInteractable;
+        }
+        stopwatch.sleep(config.pollingInterval());
+      }
+    } while (!stopwatch.isTimeoutReached());
+  }
+
+  protected File uploadFile(Driver driver, WebElement inputField, File file) throws IOException {
     if (!"input".equalsIgnoreCase(inputField.getTagName())) {
-      throw new IllegalArgumentException("Cannot upload file because " + Describe.describe(inputField) + " is not an INPUT");
+      throw new IllegalArgumentException("Cannot upload file because " + Describe.describe(driver, inputField) + " is not an INPUT");
     }
 
     if (!file.exists()) {
@@ -53,15 +77,21 @@ public class UploadFile implements Command<File> {
     return new File(canonicalPath);
   }
 
-  protected WebElement cloneInputField(SelenideElement form, WebElement inputField) {
-    return executeJavaScript(
-        "var fileInput = document.createElement('input');" +
-            "fileInput.setAttribute('type', arguments[1].getAttribute('type'));" +
-            "fileInput.setAttribute('name', arguments[1].getAttribute('name'));" +
-            "fileInput.style.width = '1px';" +
-            "fileInput.style.height = '1px';" +
-            "arguments[0].appendChild(fileInput);" +
-            "return fileInput;",
-        form, inputField);
+  protected List<WebElement> cloneInputField(Driver driver, SelenideElement form, WebElement inputField, int count) {
+    return driver.executeJavaScript(String.format("" +
+        "var newInputs = [];" +
+        "for (var i = 1; i <= arguments[2]; i++) {" +
+        "  var id = '___selenide___id___' + arguments[1].getAttribute('name') + '___' + i + '___%s';" +
+        "  var fileInput = document.createElement('input');" +
+        "  fileInput.setAttribute('type', arguments[1].getAttribute('type'));" +
+        "  fileInput.setAttribute('name', arguments[1].getAttribute('name'));" +
+        "  fileInput.setAttribute('id', id);" +
+        "  fileInput.style.width = '1px';" +
+        "  fileInput.style.height = '1px';" +
+        "  arguments[0].appendChild(fileInput);" +
+        "  newInputs.push(fileInput);" +
+        "}" +
+        "return newInputs;", System.nanoTime()),
+      form, inputField, count);
   }
 }

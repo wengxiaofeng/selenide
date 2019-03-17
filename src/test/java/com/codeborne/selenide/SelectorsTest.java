@@ -2,74 +2,160 @@ package com.codeborne.selenide;
 
 import com.codeborne.selenide.Selectors.ByText;
 import com.codeborne.selenide.Selectors.WithText;
-import org.junit.Test;
+import org.assertj.core.api.WithAssertions;
+import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-public class SelectorsTest {
+class SelectorsTest implements WithAssertions {
   @Test
-  public void withTextUsesXPath() {
+  void withTextUsesXPath() {
     By selector = Selectors.withText("john");
-    assertTrue(selector instanceof By.ByXPath);
-    assertEquals("with text: john", selector.toString());
-    assertEquals(".//*/text()[contains(normalize-space(.), \"john\")]/parent::*", ((WithText) selector).getXPath());
+    assertThat(selector)
+      .isInstanceOf(By.ByXPath.class);
+    assertThat(selector)
+      .hasToString("with text: john");
+    assertThat(((WithText) selector).getXPath())
+      .isEqualTo(".//*/text()[contains(normalize-space(translate(string(.), '\t\n\r ', '    ')), \"john\")]/parent::*");
   }
 
   @Test
-  public void withTextEscapesQuotes() {
+  void withTextEscapesQuotes() {
     By selector = Selectors.withText("Ludvig'van\"Beethoven");
-    assertEquals("with text: Ludvig'van\"Beethoven", selector.toString());
-    assertTrue(selector instanceof By.ByXPath);
-    assertEquals(".//*/text()[contains(normalize-space(.), concat(\"Ludvig'van\", '\"', \"Beethoven\"))]/parent::*", 
-        ((WithText) selector).getXPath());
+    assertThat(selector)
+      .hasToString("with text: Ludvig'van\"Beethoven");
+    assertThat(selector)
+      .isInstanceOf(By.ByXPath.class);
+    assertThat(((WithText) selector).getXPath())
+      .isEqualTo(".//*/text()[contains(normalize-space(translate(string(.), '\t\n\r ', '    ')), " +
+        "concat(\"Ludvig'van\", '\"', \"Beethoven\"))]/parent::*");
   }
 
   @Test
-  public void byTextUsesXPath() {
+  void byTextUsesXPath() {
     By selector = Selectors.byText("john");
-    assertEquals("by text: john", selector.toString());
-    assertTrue(selector instanceof By.ByXPath);
-    assertEquals(".//*/text()[normalize-space(.) = \"john\"]/parent::*", ((ByText) selector).getXPath());
+    assertThat(selector)
+      .hasToString("by text: john");
+    assertThat(selector)
+      .isInstanceOf(By.ByXPath.class);
+    assertThat(((ByText) selector).getXPath())
+      .isEqualTo(".//*/text()[normalize-space(translate(string(.), '\t\n\r\u00a0', '    ')) = \"john\"]/parent::*");
   }
 
   @Test
-  public void byTextEscapesQuotes() {
+  void byTextEscapesQuotes() {
     By selector = Selectors.byText("Ludvig'van\"Beethoven");
-    assertEquals("by text: Ludvig'van\"Beethoven", selector.toString());
-    assertTrue(selector instanceof By.ByXPath);
-    assertEquals(".//*/text()[normalize-space(.) = concat(\"Ludvig'van\", '\"', \"Beethoven\")]/parent::*", 
-        ((ByText) selector).getXPath());
+    assertThat(selector)
+      .hasToString("by text: Ludvig'van\"Beethoven");
+    assertThat(selector)
+      .isInstanceOf(By.ByXPath.class);
+    assertThat(((ByText) selector).getXPath())
+      .isEqualTo(".//*/text()[normalize-space(translate(string(.), '\t\n\r ', '    ')) = " +
+        "concat(\"Ludvig'van\", '\"', \"Beethoven\")]/parent::*");
   }
 
   @Test
-  public void byAttributeUsesXPath() {
+  void byAttributeUsesXPath() {
     By selector = Selectors.byAttribute("value", "катя");
-    assertEquals("By.cssSelector: [value='катя']", selector.toString());
+    assertThat(selector)
+      .hasToString("By.cssSelector: [value='катя']");
   }
 
   @Test
-  public void byAttributeEscapesQuotes() {
+  void byAttributeEscapesQuotes() {
     By selector = Selectors.byAttribute("value", "Ludvig'van\"Beethoven");
-    assertEquals("By.cssSelector: [value='Ludvig'van\"Beethoven']", selector.toString());
+    assertThat(selector)
+      .hasToString("By.cssSelector: [value='Ludvig'van\"Beethoven']");
   }
 
   @Test
-  public void userCanFindElementByAnyAttribute() {
+  void userCanFindElementByAnyAttribute() {
     By selector = Selectors.by("data-account-id", "666");
-    assertEquals("By.cssSelector: [data-account-id='666']", selector.toString());
+    assertThat(selector)
+      .hasToString("By.cssSelector: [data-account-id='666']");
   }
 
   @Test
-  public void byTitleUsesXPath() {
+  void byTitleUsesXPath() {
     By selector = Selectors.byTitle("PDF report");
-    assertEquals("By.cssSelector: [title='PDF report']", selector.toString());
+    assertThat(selector)
+      .hasToString("By.cssSelector: [title='PDF report']");
   }
 
   @Test
-  public void byValueUsesXPath() {
+  void byValueUsesXPath() {
     By selector = Selectors.byValue("водокачка");
-    assertEquals("By.cssSelector: [value='водокачка']", selector.toString());
+    assertThat(selector)
+      .hasToString("By.cssSelector: [value='водокачка']");
+  }
+
+  @Test
+  void byName() {
+    String name = "selenide";
+    By nameSelector = Selectors.byName(name);
+
+    assertThat(nameSelector)
+      .isInstanceOf(By.ByName.class);
+    assertThat(nameSelector)
+      .hasToString("By.name: " + name);
+  }
+
+  @Test
+  void byXpath() {
+    String xpath = "html/body/div[2]/section/div[2]/div/ul/li[2]/a/span/strong/h4";
+    By nameSelector = Selectors.byXpath(xpath);
+    assertThat(nameSelector)
+      .isInstanceOf(By.ByXPath.class);
+    assertThat(nameSelector)
+      .hasToString("By.xpath: " + xpath);
+  }
+
+  @Test
+  void byLinkText() {
+    String linkText = "click me";
+    By linkTextSelector = Selectors.byLinkText(linkText);
+    assertThat(linkTextSelector)
+      .isInstanceOf(By.ByLinkText.class);
+    assertThat(linkTextSelector)
+      .hasToString("By.linkText: " + linkText);
+  }
+
+  @Test
+  void byPartialLinkText() {
+    String partialLinkText = "click me";
+    By linkPartialTextSelector = Selectors.byPartialLinkText(partialLinkText);
+    assertThat(linkPartialTextSelector)
+      .isInstanceOf(By.ByPartialLinkText.class);
+    assertThat(linkPartialTextSelector)
+      .hasToString("By.partialLinkText: " + partialLinkText);
+  }
+
+  @Test
+  void byId() {
+    String id = "clickMe";
+    By idSelector = Selectors.byId(id);
+    assertThat(idSelector)
+      .isInstanceOf(By.ById.class);
+    assertThat(idSelector)
+      .hasToString("By.id: " + id);
+  }
+
+  @Test
+  void byCssSelector() {
+    String css = ".ql>h3";
+    By cssSelector = Selectors.byCssSelector(css);
+    assertThat(cssSelector)
+      .isInstanceOf(By.ByCssSelector.class);
+    assertThat(cssSelector)
+      .hasToString("By.cssSelector: " + css);
+  }
+
+  @Test
+  void byClassName() {
+    String className = "selenide";
+    By classNameSelector = Selectors.byClassName(className);
+    assertThat(classNameSelector)
+      .isInstanceOf(By.ByClassName.class);
+    assertThat(classNameSelector)
+      .hasToString("By.className: " + className);
   }
 }

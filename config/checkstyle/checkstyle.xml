@@ -16,23 +16,14 @@
   <!--https://github.com/checkstyle/checkstyle/blob/master/src/main/resources/google_checks.xml-->
 
   <module name="TreeWalker">
-    <!--<module name="JavadocVariable"/>-->
-    <!--<module name="JavadocStyle"/>-->
-    <module name="JavadocMethod">
-      <property name="scope" value="public"/>
-      <property name="allowMissingReturnTag" value="true"/>
-      <property name="allowMissingParamTags" value="true"/>
-      <property name="allowMissingThrowsTags" value="true"/>
-      <property name="allowUndeclaredRTE" value="true"/>
-      <property name="allowThrowsTagsForSubclasses" value="false"/>
-      <property name="logLoadErrors" value="true"/>
-      <property name="suppressLoadErrors" value="false"/>
-    </module>
     <module name="PackageName">
       <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
     </module>
-    <module name="IllegalImport"/>
+    <module name="IllegalImport">
+      <property name="illegalPkgs" value="junit, org.hamcrest"/>
+    </module>
     <module name="RedundantImport"/>
+    <module name="AvoidStarImport"/>
     <module name="UnusedImports">
       <property name="processJavadoc" value="true"/>
     </module>
@@ -54,9 +45,7 @@
     <module name="ModifierOrder"/>
     <module name="RedundantModifier"/>
 
-    <module name="LeftCurly">
-      <property name="maxLineLength" value="100"/>
-    </module>
+    <module name="LeftCurly"/>
     <!--<module name="RightCurly"/>-->
 
     <module name="SuperClone"/>
@@ -66,10 +55,10 @@
     <module name="UnnecessaryParentheses"/>
     <!--<module name="MutableException"/>-->
     <module name="ClassFanOutComplexity">
-        <property name="max" value="26"/>
+      <property name="max" value="29"/>
     </module>
     <module name="CyclomaticComplexity">
-      <property name="max" value="20"/>
+      <property name="max" value="11"/>
     </module>
     <module name="NPathComplexity"/>
 
@@ -77,11 +66,15 @@
     <module name="ArrayTypeStyle"/>
     <module name="Indentation">
       <property name="basicOffset" value="2"/>
-      <property name="braceAdjustment" value="0"/>
       <property name="caseIndent" value="2"/>
+      <property name="throwsIndent" value="2"/>
+      <property name="arrayInitIndent" value="2"/>
+      <property name="lineWrappingIndentation" value="2"/>
     </module>
   </module>
 
-  <module name="NewlineAtEndOfFile"/>
+  <module name="NewlineAtEndOfFile">
+    <property name="lineSeparator" value="lf" />
+  </module>
   <module name="FileTabCharacter"/>
 </module>

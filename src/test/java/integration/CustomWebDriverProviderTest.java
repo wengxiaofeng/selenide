@@ -1,53 +1,50 @@
 package integration;
 
-import com.codeborne.selenide.Configuration;
+import com.codeborne.selenide.SelenideConfig;
+import com.codeborne.selenide.SelenideDriver;
 import com.codeborne.selenide.WebDriverProvider;
-import com.codeborne.selenide.WebDriverRunner;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.remote.DesiredCapabilities;
 
-import static com.codeborne.selenide.Selenide.close;
-import static com.codeborne.selenide.WebDriverRunner.isChrome;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-public class CustomWebDriverProviderTest extends IntegrationTest {
-  private String originalWebdriver;
-  
-  @Before
-  public void setUp() {
-    originalWebdriver = Configuration.browser;
+class CustomWebDriverProviderTest extends BaseIntegrationTest {
+  SelenideDriver driver = new SelenideDriver(new SelenideConfig().browser(CustomWebDriverProvider.class.getName()));
 
-    assumeTrue(isChrome());
-    close();
+  @BeforeEach
+  void setUp() {
+    assumeTrue("chrome".equalsIgnoreCase(browser));
   }
 
-  @After
-  public void tearDown() {
-    close();
-    Configuration.browser = originalWebdriver;
+  @AfterEach
+  void tearDown() {
+    driver.close();
   }
 
   @Test
-  public void userCanImplementAnyCustomWebdriverProvider() {
-    Configuration.browser = CustomWebDriverProvider.class.getName();
-    
-    openFile("autocomplete.html");
-    
-    assertTrue(WebDriverRunner.getWebDriver() instanceof CustomChromeDriver);
+  void userCanImplementAnyCustomWebdriverProvider() {
+    driver.open("/autocomplete.html");
+
+    assertThat(driver.getWebDriver()).isInstanceOf(CustomChromeDriver.class);
   }
 
   private static class CustomChromeDriver extends ChromeDriver {
+    protected CustomChromeDriver(ChromeOptions options) {
+      super(options);
+    }
   }
-  
+
   private static class CustomWebDriverProvider implements WebDriverProvider {
     @Override
     public WebDriver createDriver(DesiredCapabilities desiredCapabilities) {
-      return new CustomChromeDriver();
+      ChromeOptions options = new ChromeOptions();
+      if (browser().isHeadless()) options.setHeadless(true);
+      return new CustomChromeDriver(options);
     }
   }
 }
